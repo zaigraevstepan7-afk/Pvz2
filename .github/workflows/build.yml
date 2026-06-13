@@ -28,9 +28,17 @@ jobs:
       - name: Build
         run: cmake --build build --config Release -j$(nproc)
 
-      - name: Upload .so
+      - name: Package (lib + injector)
+        run: |
+          mkdir -p dist
+          cp build/libStandoffMenu.so dist/
+          cp Internal/injector/andkittyinjector dist/
+          cp Internal/injector/inject.sh dist/
+          chmod +x dist/andkittyinjector dist/inject.sh
+
+      - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: libStandoffMenu-arm64
-          path: build/libStandoffMenu.so
+          name: StandoffMenu-inject
+          path: dist/
           if-no-files-found: error
