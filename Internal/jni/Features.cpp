@@ -5,7 +5,8 @@
 // =====================================================================
 #include "Includes/Il2Cpp.h"
 #include "Menu/Menu.h"
-#include "dobby.h"
+#include "And64InlineHook.hpp"
+#define HOOK(addr, repl, orig) A64HookFunction((void*)(addr), (void*)(repl), (void**)(orig))
 
 using namespace OFS;
 
@@ -42,12 +43,9 @@ namespace Features {
     }
 
     void InstallHooks() {
-        DobbyHook(il2cpp::Func(Rva::get_DetonationDuration),
-                  (void*) h_DetonationDuration, (void**) &o_DetonationDuration);
-        DobbyHook(il2cpp::Func(Rva::get_RecoilAccelStep),
-                  (void*) h_RecoilAccelStep, (void**) &o_RecoilAccelStep);
-        DobbyHook(il2cpp::Func(Rva::get_RecoilAccelDuration),
-                  (void*) h_RecoilAccelDuration, (void**) &o_RecoilAccelDuration);
+        HOOK(il2cpp::Func(Rva::get_DetonationDuration),  h_DetonationDuration,   &o_DetonationDuration);
+        HOOK(il2cpp::Func(Rva::get_RecoilAccelStep),     h_RecoilAccelStep,      &o_RecoilAccelStep);
+        HOOK(il2cpp::Func(Rva::get_RecoilAccelDuration), h_RecoilAccelDuration,  &o_RecoilAccelDuration);
     }
 
     // Вызывается каждый кадр из меню-цикла

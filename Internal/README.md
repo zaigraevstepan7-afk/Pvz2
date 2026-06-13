@@ -10,7 +10,7 @@
 | `jni/Includes/Il2Cpp.h`  | База `libil2cpp.so`, attach потока, чтение/запись полей |
 | `jni/Main.cpp`           | Хук `eglSwapBuffers` (рендер) + `AInputQueue` (тач) |
 | `jni/Menu/Menu.cpp`      | UI: полоска открытия + окно меню |
-| `jni/Features.cpp`       | Читы через хуки геттеров (Dobby) |
+| `jni/Features.cpp`       | Читы через хуки геттеров (And64InlineHook) |
 
 ## Меню
 - Перетаскиваемая синяя полоска **MENU** — тап открывает/закрывает меню, удержание перетаскивает.

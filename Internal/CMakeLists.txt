@@ -13,13 +13,11 @@ FetchContent_Declare(imgui
     GIT_TAG        v1.90.9)
 FetchContent_MakeAvailable(imgui)
 
-# ---- Dobby (хуки) ----
-set(DOBBY_DEBUG OFF CACHE BOOL "" FORCE)
-set(DOBBY_GENERATE_SHARED OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(dobby
-    GIT_REPOSITORY https://github.com/jmpews/Dobby.git
+# ---- And64InlineHook (arm64 inline hook, чистый C++) ----
+FetchContent_Declare(a64hook
+    GIT_REPOSITORY https://github.com/Rprop/And64InlineHook.git
     GIT_TAG        master)
-FetchContent_MakeAvailable(dobby)
+FetchContent_MakeAvailable(a64hook)
 
 set(IMGUI_SRC
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -33,16 +31,15 @@ add_library(StandoffMenu SHARED
     jni/Main.cpp
     jni/Features.cpp
     jni/Menu/Menu.cpp
+    ${a64hook_SOURCE_DIR}/And64InlineHook.cpp
     ${IMGUI_SRC})
 
 target_include_directories(StandoffMenu PRIVATE
     jni
     ${imgui_SOURCE_DIR}
-    ${dobby_SOURCE_DIR}
-    ${dobby_SOURCE_DIR}/include)
+    ${a64hook_SOURCE_DIR})
 
 target_compile_definitions(StandoffMenu PRIVATE IMGUI_IMPL_OPENGL_ES2)
 
 target_link_libraries(StandoffMenu
-    dobby
     EGL GLESv2 android log dl)

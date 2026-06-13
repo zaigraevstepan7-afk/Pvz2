@@ -8,7 +8,7 @@
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 
-#include "dobby.h"
+#include "And64InlineHook.hpp"
 #include "imgui.h"
 #include "backends/imgui_impl_opengl3.h"
 #include "backends/imgui_impl_android.h"
@@ -75,12 +75,12 @@ static void* init_thread(void*) {
     // Рендер
     void* egl = dlopen("libEGL.so", RTLD_LAZY);
     void* sw  = egl ? dlsym(egl, "eglSwapBuffers") : nullptr;
-    if (sw) DobbyHook(sw, (void*) h_eglSwapBuffers, (void**) &o_eglSwapBuffers);
+    if (sw) A64HookFunction(sw, (void*) h_eglSwapBuffers, (void**) &o_eglSwapBuffers);
 
     // Ввод
     void* la  = dlopen("libandroid.so", RTLD_LAZY);
     void* ge  = la ? dlsym(la, "AInputQueue_getEvent") : nullptr;
-    if (ge) DobbyHook(ge, (void*) h_getEvent, (void**) &o_getEvent);
+    if (ge) A64HookFunction(ge, (void*) h_getEvent, (void**) &o_getEvent);
 
     LOG("Готово. Меню: тапни синюю полоску MENU.");
     return nullptr;
