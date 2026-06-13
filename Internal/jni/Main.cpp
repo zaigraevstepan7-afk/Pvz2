@@ -1,6 +1,7 @@
 // =====================================================================
 //  Main.cpp — точка входа .so
 //  Рендер ImGui через хук eglSwapBuffers + ввод через AInputQueue.
+//  Порядок: СНАЧАЛА рендер/ввод (не зависят от оффсетов), ПОТОМ il2cpp.
 // =====================================================================
 #include <pthread.h>
 #include <android/log.h>
@@ -22,12 +23,12 @@ namespace Features { void InstallHooks(); void Tick(); }
 
 static bool g_imguiInit = false;
 
-// ---------- Хук рендера ----------
-static EGLBoolean (*o_eglSwapBuffers)(EGLDisplay, EGLSurface);
-static EGLBoolean h_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
+// ---------- Рендер кадра ----------
+static void RenderFrame(EGLDisplay dpy, EGLSurface surface) {
     EGLint w = 0, h = 0;
     eglQuerySurface(dpy, surface, EGL_WIDTH,  &w);
     eglQuerySurface(dpy, surface, EGL_HEIGHT, &h);
+    if (w <= 0 || h <= 0) return;
 
     if (!g_imguiInit) {
         ImGui::CreateContext();
@@ -37,7 +38,7 @@ static EGLBoolean h_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
         ImGui_ImplOpenGL3_Init("#version 100");
         ImGui_ImplAndroid_Init(nullptr);
         g_imguiInit = true;
-        LOG("ImGui инициализирован %dx%d", w, h);
+        LOG(">>> ImGui ИНИЦИАЛИЗИРОВАН %dx%d — меню должно быть видно", w, h);
     }
 
     ImGuiIO& io = ImGui::GetIO();
@@ -52,7 +53,14 @@ static EGLBoolean h_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
 
+// ---------- Хук рендера ----------
+static EGLBoolean (*o_eglSwapBuffers)(EGLDisplay, EGLSurface);
+static EGLBoolean h_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
+    static bool first = true;
+    if (first) { first = false; LOG(">>> ПЕРВЫЙ eglSwapBuffers пойман — рендер GLES активен"); }
+    RenderFrame(dpy, surface);
     return o_eglSwapBuffers(dpy, surface);
 }
 
@@ -67,27 +75,48 @@ static int32_t h_getEvent(AInputQueue* q, AInputEvent** ev) {
 
 // ---------- Поток инициализации ----------
 static void* init_thread(void*) {
-    il2cpp::WaitForLib();          // ждём libil2cpp.so
-    sleep(6);                      // даём игре прогрузиться
-    il2cpp::Attach();              // привязываем поток к домену
-    Features::InstallHooks();      // хуки читов
+    LOG(">>> init_thread старт");
+    sleep(8); // даём игре и EGL прогрузиться
 
-    // Рендер
-    void* egl = dlopen("libEGL.so", RTLD_LAZY);
-    void* sw  = egl ? dlsym(egl, "eglSwapBuffers") : nullptr;
-    if (sw) A64HookFunction(sw, (void*) h_eglSwapBuffers, (void**) &o_eglSwapBuffers);
+    // 1) РЕНДЕР (не зависит от игровых оффсетов!)
+    void* sw = dlsym(RTLD_DEFAULT, "eglSwapBuffers");
+    if (!sw) {
+        void* egl = dlopen("libEGL.so", RTLD_NOW);
+        sw = egl ? dlsym(egl, "eglSwapBuffers") : nullptr;
+    }
+    LOG(">>> eglSwapBuffers = %p", sw);
+    if (sw) {
+        A64HookFunction(sw, (void*) h_eglSwapBuffers, (void**) &o_eglSwapBuffers);
+        LOG(">>> хук рендера установлен");
+    } else {
+        LOG("!!! eglSwapBuffers НЕ найден — игра на Vulkan?");
+    }
 
-    // Ввод
-    void* la  = dlopen("libandroid.so", RTLD_LAZY);
-    void* ge  = la ? dlsym(la, "AInputQueue_getEvent") : nullptr;
+    // 2) ВВОД
+    void* ge = dlsym(RTLD_DEFAULT, "AInputQueue_getEvent");
+    if (!ge) {
+        void* la = dlopen("libandroid.so", RTLD_NOW);
+        ge = la ? dlsym(la, "AInputQueue_getEvent") : nullptr;
+    }
     if (ge) A64HookFunction(ge, (void*) h_getEvent, (void**) &o_getEvent);
+    LOG(">>> AInputQueue_getEvent = %p", ge);
 
-    LOG("Готово. Меню: тапни синюю полоску MENU.");
+    // 3) IL2CPP — фичи (опционально, на появление меню НЕ влияет)
+    il2cpp::g_base = il2cpp::GetLibBase();
+    LOG(">>> libil2cpp base = %p", (void*) il2cpp::g_base);
+    if (il2cpp::g_base) {
+        il2cpp::Attach();
+        Features::InstallHooks();
+        LOG(">>> хуки читов установлены");
+    }
+
+    LOG(">>> Готово. Если видишь '>>> ПЕРВЫЙ eglSwapBuffers' — рендер ок.");
     return nullptr;
 }
 
 __attribute__((constructor))
 static void entry() {
+    LOG(">>> .so загружена (constructor)");
     pthread_t t;
     pthread_create(&t, nullptr, init_thread, nullptr);
 }
