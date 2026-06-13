@@ -101,16 +101,14 @@ static void* init_thread(void*) {
     if (ge) A64HookFunction(ge, (void*) h_getEvent, (void**) &o_getEvent);
     LOG(">>> AInputQueue_getEvent = %p", ge);
 
-    // 3) IL2CPP — фичи (опционально, на появление меню НЕ влияет)
+    // 3) IL2CPP — ОТКЛЮЧЕНО (v3): inline-хук коротких геттеров затирал
+    //    соседние функции → краш при заходе в бой. Сначала стабильное меню.
     il2cpp::g_base = il2cpp::GetLibBase();
     LOG(">>> libil2cpp base = %p", (void*) il2cpp::g_base);
-    if (il2cpp::g_base) {
-        il2cpp::Attach();
-        Features::InstallHooks();
-        LOG(">>> хуки читов установлены");
-    }
+    // il2cpp::Attach();          // ВЫКЛ в v3
+    // Features::InstallHooks();  // ВЫКЛ в v3 — вернём через безопасную запись в память
 
-    LOG(">>> Готово. Если видишь '>>> ПЕРВЫЙ eglSwapBuffers' — рендер ок.");
+    LOG(">>> Готово (v3, чистое меню). Ищи '>>> ПЕРВЫЙ eglSwapBuffers'.");
     return nullptr;
 }
 
